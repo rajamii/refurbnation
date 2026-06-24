@@ -1,15 +1,15 @@
-# api/urls.py
 from django.urls import path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, AdminCreateOfficeUserView, AdminListClientUsersView
+from rest_framework_simplejwt.views import TokenRefreshView
+from .views import (
+    CustomTokenObtainPairView, RegisterView, 
+    AdminUserListView, AdminCreateOfficeUserView
+)
 
 urlpatterns = [
-    # Auth Endpoints
-    path('auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('auth/register/', RegisterView.as_view(), name='register'),
+    path('auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('auth/login/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/register/', RegisterView.as_view(), name='auth_register'),
     
-    # Admin Endpoints
-    path('admin/create-office/', AdminCreateOfficeUserView.as_view(), name='create-office'),
-    path('admin/clients/', AdminListClientUsersView.as_view(), name='admin-clients'),
+    path('admin/users/', AdminUserListView.as_view(), name='admin_user_list'),
+    path('admin/users/office/', AdminCreateOfficeUserView.as_view(), name='admin_create_office_user'),
 ]

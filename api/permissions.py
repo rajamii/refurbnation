@@ -1,9 +1,9 @@
-from rest_framework.permissions import BasePermission
+from rest_framework import permissions
 
-class IsAdminUserRole(BasePermission):
+class IsAdminUserRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'ADMIN'
+        return bool(request.user and request.user.is_authenticated and request.user.role == 'ADMIN')
 
-class IsOfficeUserRole(BasePermission):
+class IsOfficeUserRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'OFFICE'
+        return bool(request.user and request.user.is_authenticated and request.user.role == 'OFFICE')

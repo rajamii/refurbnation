@@ -1,45 +1,42 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'role', 'first_name', 'last_name']
+        fields = ('id', 'email', 'role', 'date_joined')
+        read_only_fields = ('id', 'role', 'date_joined')
 
 class RegisterSerializer(serializers.ModelSerializer):
-    # CHANGED: write_with_only=True -> write_only=True
-    password = serializers.CharField(write_only=True)
-
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name']
+        fields = ('email', 'password')
 
     def create(self, validated_data):
+        # Default registration is for standard 'USER'
         user = User.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=User.Roles.USER # Forces default signup to be a standard client
+            role=User.Roles.USER
         )
         return user
 
-class CreateOfficeUserSerializer(serializers.ModelSerializer):
-    # CHANGED: write_with_only=True -> write_only=True
-    password = serializers.CharField(write_only=True)
-
+class AdminCreateOfficeUserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, required=True)
+    
     class Meta:
         model = User
-        fields = ['email', 'password', 'first_name', 'last_name']
+        fields = ('email', 'password')
 
     def create(self, validated_data):
         user = User.objects.create_user(
             email=validated_data['email'],
             password=validated_data['password'],
-            first_name=validated_data.get('first_name', ''),
-            last_name=validated_data.get('last_name', ''),
-            role=User.Roles.OFFICE # Hardcoded to Office creation
+            role=User.Roles.OFFICE
         )
         return user
