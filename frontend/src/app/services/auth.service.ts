@@ -18,7 +18,9 @@ export class AuthService {
   token = signal<string | null>(localStorage.getItem('token'));
 
   login(credentials: any) {
-    return this.http.post<{ access: string, user: UserProfile }>(`${this.apiUrl}/token/`, credentials).pipe(
+    return this.http.post<{
+      role: string; access: string, user: UserProfile 
+}>(`${this.apiUrl}/token/`, credentials).pipe(
       tap(res => {
         localStorage.setItem('token', res.access);
         this.token.set(res.access);

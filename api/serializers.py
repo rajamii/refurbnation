@@ -9,7 +9,8 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'email', 'role', 'first_name', 'last_name']
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_with_only=True)
+    # CHANGED: write_with_only=True -> write_only=True
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
@@ -26,7 +27,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class CreateOfficeUserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_with_only=True)
+    # CHANGED: write_with_only=True -> write_only=True
+    password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User

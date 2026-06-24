@@ -1,0 +1,52 @@
+<div class="admin-dashboard">
+    <header>
+        <h1>Studio Administration</h1>
+        <div class="tabs">
+            <button (click)="activeTab.set('clients')" [class.active]="activeTab() === 'clients'">Client
+                Database</button>
+            <button (click)="activeTab.set('create-office')" [class.active]="activeTab() === 'create-office'">Onboard
+                Office User</button>
+        </div>
+    </header>
+
+    <main>
+        @if (activeTab() === 'clients') {
+        <div class="panel">
+            <h3>Registered Clients</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (client of clients(); track client.id) {
+                    <tr>
+                        <td>{{ client.email }}</td>
+                        <td>{{ client.first_name }}</td>
+                        <td>{{ client.last_name }}</td>
+                    </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        }
+
+        @if (activeTab() === 'create-office') {
+        <div class="panel max-w-md">
+            <h3>Create Office Employee Account</h3>
+            <form (ngSubmit)="onCreateOffice()">
+                <input type="email" name="oEmail" [(ngModel)]="officeData.email" placeholder="Employee Email"
+                    required />
+                <input type="password" name="oPassword" [(ngModel)]="officeData.password"
+                    placeholder="Temporary Password" required />
+                <input type="text" name="oFirst" [(ngModel)]="officeData.first_name" placeholder="First Name" />
+                <input type="text" name="oLast" [(ngModel)]="officeData.last_name" placeholder="Last Name" />
+                <button type="submit">Provision Account</button>
+            </form>
+        </div>
+        }
+    </main>
+</div>
