@@ -1,1 +1,126 @@
-<p>dashboard works!</p>
+<div class="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+  <!-- Top Portal Navigation Header -->
+  <nav class="border-b border-neutral-900 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-sm font-semibold tracking-widest uppercase text-white">RefurbNation Portal</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <!-- Manual Pull Sync Action -->
+        <button (click)="loadMyBookings()" class="text-xs text-neutral-400 hover:text-white transition-all cursor-pointer">
+          ⟳ Sync Status
+        </button>
+        <span class="text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 px-3 py-1 rounded-full">Client Workspace</span>
+        <button (click)="logout()" class="text-xs text-neutral-500 hover:text-rose-400 transition-colors duration-200 cursor-pointer">
+          Leave Session
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Split Grid Layout Container -->
+  <main class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- Left Panel Column: New Treatment Scheduling Form -->
+    <div class="lg:col-span-1 space-y-6">
+      <div class="bg-neutral-900/40 border border-neutral-900 p-6 rounded-2xl backdrop-blur-md">
+        <h2 class="text-base font-medium text-white mb-1">Book New Treatment</h2>
+        <p class="text-xs text-neutral-500 mb-6">Select from our precision execution detailing matrix.</p>
+
+        <form (ngSubmit)="createBooking()" class="space-y-5">
+          <!-- Tier Treatment Selection Dropdown -->
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-2 font-medium">1. Select Studio Treatment</label>
+            <select [(ngModel)]="selectedServiceId" name="service" required
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-neutral-700 cursor-pointer">
+              <option [ngValue]="null" disabled>Choose treatment tier...</option>
+              <option *ngFor="let s of services" [ngValue]="s.id">
+                {{ s.name }} ({{ s.price | currency }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Calendar Availability Slot Picker -->
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-2 font-medium">2. Choose Available Slot</label>
+            <select [(ngModel)]="selectedSlotId" name="slot" required
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-neutral-700 cursor-pointer">
+              <option [ngValue]="null" disabled>Choose calendar slot...</option>
+              <option *ngFor="let slot of slots" [ngValue]="slot.id">
+                {{ slot.date | date:'MMMM d, y' }} @ {{ slot.start_time.substring(0,5) }} - {{ slot.end_time.substring(0,5) }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Placement Trigger Button -->
+          <button type="submit" [disabled]="!selectedServiceId || !selectedSlotId"
+            class="w-full bg-white disabled:bg-neutral-900 disabled:text-neutral-600 disabled:border-neutral-900 text-black text-xs font-medium py-3 rounded-xl hover:bg-neutral-200 transition-all duration-200 mt-2 cursor-pointer border border-transparent">
+            Confirm Studio Appointment
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Right Panel Column: Orders Tracking Pipeline & Timeline Status -->
+    <div class="lg:col-span-2 space-y-6">
+      <div class="bg-neutral-900/20 border border-neutral-900 rounded-2xl overflow-hidden backdrop-blur-md">
+        <div class="p-6 border-b border-neutral-900 bg-neutral-900/10">
+          <h2 class="text-base font-medium text-white">Your Orders & Active Timelines</h2>
+          <p class="text-xs text-neutral-500 mt-1">Real-time delivery status metrics running direct from the detailing floor.</p>
+        </div>
+
+        <div class="divide-y divide-neutral-900">
+          <div *ngFor="let b of bookings" class="p-6 hover:bg-neutral-900/10 transition-all duration-200">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              
+              <div class="space-y-2">
+                <!-- Requirement Met: Prominently prints out unique Booking ID -->
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-mono font-semibold tracking-widest text-white px-2 py-0.5 bg-neutral-900 border border-neutral-800 rounded">
+                    BOOKING ID: #{{ b.id }}
+                  </span>
+                </div>
+                
+                <h3 class="text-sm font-medium text-white pt-1">{{ b.service_name }}</h3>
+                <p class="text-[11px] text-neutral-500">Initial Schedule Block: Slot reference index #{{ b.slot }}</p>
+
+                <!-- Requirement Met: If office has updated the timeline, display it clearly -->
+                <div *ngIf="b.estimated_delivery_timeline" class="pt-2 flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                  <p class="text-xs text-blue-400 font-medium">
+                    Estimated Delivery: <span class="text-neutral-300 font-normal">{{ b.estimated_delivery_timeline | date:'EEEE, MMMM d, y @ h:mm a' }}</span>
+                  </p>
+                </div>
+                
+                <div *ngIf="!b.estimated_delivery_timeline" class="pt-2 flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-neutral-700"></span>
+                  <p class="text-xs text-neutral-500">Estimated Delivery: <span class="font-light italic">Awaiting Operator Assessment</span></p>
+                </div>
+              </div>
+
+              <!-- Context-Aware Dynamic Status Indicators -->
+              <div class="flex items-center">
+                <span [ngClass]="{
+                  'bg-amber-950/40 text-amber-400 border-amber-900/50': b.status === 'PENDING',
+                  'bg-blue-950/40 text-blue-400 border-blue-900/50': b.status === 'CONFIRMED' || b.status === 'IN_PROGRESS',
+                  'bg-emerald-950/40 text-emerald-400 border-emerald-900/50': b.status === 'READY' || b.status === 'COMPLETED',
+                  'bg-neutral-900 text-neutral-500 border-neutral-800': b.status === 'CANCELLED'
+                }" class="text-[10px] px-3 py-1 rounded-full font-medium tracking-wider uppercase border text-center min-w-[100px]">
+                  {{ b.status.replace('_', ' ') }}
+                </span>
+              </div>
+              
+            </div>
+          </div>
+
+          <!-- Fallback Empty State Condition -->
+          <div *ngIf="bookings.length === 0" class="p-16 text-center text-xs text-neutral-500">
+            No history or pending requests logged yet. Use the scheduler menu to initialize your machine configuration.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>

@@ -8,7 +8,6 @@ import { tap } from 'rxjs';
 export class AuthService {
   private apiUrl = 'http://localhost:8000/api';
   
-  // Use Angular Signals to match your auth.guard.ts
   currentUser = signal<{role: string, email?: string} | null>(null);
 
   constructor(private http: HttpClient) {
@@ -25,10 +24,14 @@ export class AuthService {
         localStorage.setItem('refresh', res.refresh);
         localStorage.setItem('role', res.role);
         
-        // Update the signal
         this.currentUser.set({ role: res.role, email: res.email });
       })
     );
+  }
+
+  // Missing register function hitting your Django RegisterView endpoint
+  register(credentials: any) {
+    return this.http.post(`${this.apiUrl}/auth/register/`, credentials);
   }
 
   logout() {

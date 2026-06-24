@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
-    CustomTokenObtainPairView, RegisterView, 
+    AdminAuditLogListView, CustomTokenObtainPairView, RegisterView, 
     AdminUserListView, AdminCreateOfficeUserView,
     ServiceViewSet, AppointmentSlotViewSet, BookingViewSet
 )
@@ -20,7 +20,7 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='auth_register'),
     path('admin/users/', AdminUserListView.as_view(), name='admin_user_list'),
     path('admin/users/office/', AdminCreateOfficeUserView.as_view(), name='admin_create_office_user'),
-    
+    path('admin/logs/', AdminAuditLogListView.as_view(), name='admin_audit_logs'),
     # Core Application URLs
     path('', include(router.urls)),
 ]

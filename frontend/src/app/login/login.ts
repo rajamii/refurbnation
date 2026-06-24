@@ -1,29 +1,53 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-login',
-  standalone: true,
-  imports: [FormsModule],
   templateUrl: './login.html',
-  styleUrl: './login.scss'
+  standalone: true,
+  imports: [CommonModule, FormsModule, RouterLink]
 })
 export class LoginComponent {
-  private authService = inject(AuthService);
-  private router = inject(Router);
+  // This defines the toggle state for the view
+  isLogin = true; 
 
+  // Form input bindings
   email = '';
   password = '';
 
+  constructor(
+    private authService: AuthService, 
+    private router: Router
+  ) {}
+
   onSubmit() {
-    this.authService.login({ email: this.email, password: this.password }).subscribe({
-      next: (user) => {
-        if (user.role === 'ADMIN') this.router.navigate(['/admin']);
-        else if (user.role === 'OFFICE') this.router.navigate(['/office']);
-        else this.router.navigate(['/dashboard']);
-      }
-    });
+    const credentials = { email: this.email, password: this.password };
+
+    if (this.isLogin) {
+      // Execute login sequence using your Signals-based AuthService
+      this.authService.login(credentials).subscribe({
+        next: () => {
+          // Redirect dynamically based on the role your backend sent back
+          const role = localStorage.getItem('role');
+          if (role === 'ADMIN') this.router.navigate(['/admin']);
+          else if (role === 'OFFICE') this.router.navigate(['/office']);
+          else this.router.navigate(['/dashboard']);
+        },
+        error: (err) => console.error('Authentication failed', err)
+      });
+    } else {
+      // Execute signup/registration sequence
+      this.authService.register(credentials).subscribe({
+        next: () => {
+          // Switch to login view smoothly upon successful registration
+          this.isLogin = true;
+          this.password = '';
+        },
+        error: (err) => console.error('Registration failed', err)
+      });
+    }
   }
 }

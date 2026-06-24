@@ -4,8 +4,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer, RegisterSerializer, AdminCreateOfficeUserSerializer, ServiceSerializer, AppointmentSlotSerializer, BookingSerializer
-from .models import Service, AppointmentSlot, Booking
+from .serializers import UserSerializer, RegisterSerializer, AdminCreateOfficeUserSerializer, ServiceSerializer, AppointmentSlotSerializer, BookingSerializer, BookingLogSerializer
+from .models import Service, AppointmentSlot, Booking, BookingLog
+from rest_framework.response import Response
 from .permissions import IsAdminUserRole, IsAdminOrOffice, IsAdminOfficeOrReadOnly
 
 User = get_user_model()
@@ -86,3 +87,41 @@ class BookingViewSet(viewsets.ModelViewSet):
             booking.save()
             return Response({'status': 'Booking status updated'})
         return Response({'error': 'Invalid status'}, status=400)
+
+
+class AdminAuditLogListView(generics.ListAPIView):
+    queryset = BookingLog.objects.all()
+    serializer_class = BookingLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+
+class BookingViewSet(viewsets.ModelViewSet):
+    # ... your existing properties ...
+
+    def _log_action(self, booking, actor):
+        BookingLog.objects.create(
+            booking_id=booking.id,
+            client_email=booking.user.email,
+            service_name=booking.service.name,
+            action_by=actor.email,
+            status_changed_to=booking.status
+        )
+
+    def perform_create(self, serializer):
+        booking = serializer.save(user=self.request.user)
+        self._log_action(booking, self.request.user) # Logs initial creation by user
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrOffice])
+    def update_status(self, request, pk=None):
+        booking = self.get_object()
+        new_status = request.data.get('status')
+        new_timeline = request.data.get('estimated_delivery_timeline')
+        
+        if new_status:
+            booking.status = new_status
+        if new_timeline:
+            booking.estimated_delivery_timeline = new_timeline
+            
+        booking.save()
+        self._log_action(booking, request.user) # Logs handling action taken by staff/admin
+        return Response({'status': 'Booking updated'})

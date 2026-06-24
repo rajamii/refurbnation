@@ -1,70 +1,208 @@
-<div class="min-h-screen bg-gray-50 p-8">
-    <div class="max-w-6xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-
-        <div class="border-b border-gray-200">
-            <nav class="flex -mb-px">
-                <button (click)="setTab('clients')" [class.border-black]="activeTab === 'clients'"
-                    [class.text-black]="activeTab === 'clients'"
-                    class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 transition">
-                    Client Users
-                </button>
-                <button (click)="setTab('office')" [class.border-black]="activeTab === 'office'"
-                    [class.text-black]="activeTab === 'office'"
-                    class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700 transition">
-                    Office Users
-                </button>
-            </nav>
-        </div>
-
-        <div class="p-6">
-            @if (activeTab === 'office') {
-            <div class="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900 mb-4">Add New Office User</h3>
-                <div class="flex gap-4">
-                    <input [(ngModel)]="newOfficeEmail" type="email" placeholder="Email"
-                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-black focus:border-black sm:text-sm">
-                    <input [(ngModel)]="newOfficePassword" type="password" placeholder="Password"
-                        class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-black focus:border-black sm:text-sm">
-                    <button (click)="createOfficeUser()"
-                        class="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 text-sm font-medium">Create</button>
-                </div>
-            </div>
-            }
-
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Email</th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Role</th>
-                            <th scope="col"
-                                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Date Joined</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        @for (user of users; track user.email) {
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.email }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <span
-                                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                    {{ user.role }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {{ user.date_joined | date }}
-                            </td>
-                        </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+<div class="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+  <header class="border-b border-neutral-900 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xs uppercase font-semibold tracking-widest bg-white text-black px-2 py-0.5 rounded">HQ</span>
+        <h1 class="text-sm font-medium tracking-tight text-white">RefurbNation Console</h1>
+      </div>
+      
+      <button (click)="logout()" class="text-xs text-neutral-500 hover:text-rose-400 transition-colors duration-200 cursor-pointer">
+        Disconnect Console
+      </button>
     </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-12">
+    <div class="flex items-center border-b border-neutral-900 mb-8 gap-6 overflow-x-auto whitespace-nowrap scrollbar-none">
+      <button (click)="setTab('clients')" 
+        [class.text-white]="activeTab === 'clients'" [class.border-white]="activeTab === 'clients'"
+        class="pb-4 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-all cursor-pointer">
+        Client Directory
+      </button>
+      <button (click)="setTab('office')" 
+        [class.text-white]="activeTab === 'office'" [class.border-white]="activeTab === 'office'"
+        class="pb-4 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-all cursor-pointer">
+        Office Staff Hub
+      </button>
+      <button (click)="setTab('services')" 
+        [class.text-white]="activeTab === 'services'" [class.border-white]="activeTab === 'services'"
+        class="pb-4 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-all cursor-pointer">
+        Service Matrix
+      </button>
+      <button (click)="setTab('logs')" 
+        [class.text-white]="activeTab === 'logs'" [class.border-white]="activeTab === 'logs'"
+        class="pb-4 text-sm font-medium border-b-2 border-transparent text-neutral-500 hover:text-neutral-300 transition-all cursor-pointer">
+        System Audit Logs
+      </button>
+    </div>
+
+    <div *ngIf="activeTab === 'clients'" class="animate-fade-in">
+      <div class="bg-neutral-900/30 border border-neutral-900 rounded-2xl overflow-hidden backdrop-blur-md">
+        <div class="p-6 border-b border-neutral-900">
+          <h2 class="text-base font-medium text-white">Registered System Clients</h2>
+          <p class="text-xs text-neutral-500 mt-1">Complete overview of registered client application profiles.</p>
+        </div>
+        <div class="divide-y divide-neutral-900">
+          <div *ngFor="let client of users" class="p-4 px-6 flex items-center justify-between hover:bg-neutral-900/20 transition-all">
+            <div class="flex items-center gap-4">
+              <div class="w-8 h-8 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-xs text-neutral-400">
+                {{ client.email ? client.email.charAt(0).toUpperCase() : 'U' }}
+              </div>
+              <div>
+                <p class="text-sm font-medium text-neutral-200">{{ client.email }}</p>
+                <p class="text-[11px] text-neutral-500">ID Reference: #{{ client.id }}</p>
+              </div>
+            </div>
+            <span class="text-[11px] bg-neutral-900 border border-neutral-800 text-neutral-400 px-2.5 py-1 rounded-full font-medium uppercase tracking-wider">Client</span>
+          </div>
+          <div *ngIf="users.length === 0" class="p-12 text-center text-sm text-neutral-500">No client users tracked in this segment.</div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="activeTab === 'office'" class="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+      <div class="bg-neutral-900/30 border border-neutral-900 p-6 rounded-2xl h-fit">
+        <h3 class="text-sm font-medium text-white mb-1">Provision Office Account</h3>
+        <p class="text-xs text-neutral-500 mb-4">Grant dashboard privileges to service operators.</p>
+        
+        <form (ngSubmit)="createOfficeUser()" class="space-y-4">
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Corporate Email</label>
+            <input [(ngModel)]="newOfficeEmail" name="email" type="email" required placeholder="name@refurbnation.com"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all">
+          </div>
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Assigned Security Phrase</label>
+            <input [(ngModel)]="newOfficePassword" name="password" type="password" required placeholder="••••••••"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all">
+          </div>
+          <button type="submit" class="w-full bg-white text-black text-xs font-medium py-2.5 rounded-xl hover:bg-neutral-200 transition-all duration-200 mt-2 cursor-pointer">
+            Provision Account
+          </button>
+        </form>
+      </div>
+
+      <div class="lg:col-span-2 bg-neutral-900/30 border border-neutral-900 rounded-2xl overflow-hidden">
+        <div class="p-6 border-b border-neutral-900">
+          <h2 class="text-base font-medium text-white">Active Staff Operators</h2>
+          <p class="text-xs text-neutral-500 mt-1">Authorized users managing shop inventory pipelines, bookings, and slots.</p>
+        </div>
+        <div class="divide-y divide-neutral-900">
+          <div *ngFor="let staff of users" class="p-4 px-6 flex items-center justify-between hover:bg-neutral-900/20 transition-all">
+            <div class="flex items-center gap-3">
+              <div class="w-2 h-2 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50"></div>
+              <span class="text-sm font-medium text-neutral-200">{{ staff.email }}</span>
+            </div>
+            <span class="text-[10px] bg-blue-950/40 text-blue-400 border border-blue-900/50 px-2.5 py-0.5 rounded-full font-medium uppercase tracking-wider">Operator</span>
+          </div>
+          <div *ngIf="users.length === 0" class="p-12 text-center text-sm text-neutral-500">No staff accounts provisioned.</div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="activeTab === 'services'" class="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+      <div class="bg-neutral-900/30 border border-neutral-900 p-6 rounded-2xl h-fit">
+        <h3 class="text-sm font-medium text-white mb-1">Add Treatment Tier</h3>
+        <p class="text-xs text-neutral-500 mb-4">Introduce a new detailing or refurbishment layout configuration.</p>
+        
+        <form (ngSubmit)="createServiceType()" class="space-y-4">
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Treatment Name</label>
+            <input [(ngModel)]="newService.name" name="name" type="text" required placeholder="Signature Ceramic Coat"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all">
+          </div>
+          
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Base Price ($)</label>
+            <input [(ngModel)]="newService.price" name="price" type="number" step="0.01" required placeholder="299.99"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all">
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Estimated Workshop Hours</label>
+            <input [(ngModel)]="newService.estimated_duration_hours" name="duration" type="number" step="0.1" required placeholder="2.5"
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all">
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Treatment Description</label>
+            <textarea [(ngModel)]="newService.description" name="description" rows="3" placeholder="Describe the execution step processes..."
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-neutral-700 transition-all resize-none"></textarea>
+          </div>
+
+          <button type="submit" class="w-full bg-white text-black text-xs font-medium py-2.5 rounded-xl hover:bg-neutral-200 transition-all duration-200 mt-2 cursor-pointer">
+            Publish Treatment Tier
+          </button>
+        </form>
+      </div>
+
+      <div class="lg:col-span-2 bg-neutral-900/30 border border-neutral-900 rounded-2xl overflow-hidden">
+        <div class="p-6 border-b border-neutral-900">
+          <h2 class="text-base font-medium text-white">Active Treatment Menu</h2>
+          <p class="text-xs text-neutral-500 mt-1">Available service matrices currently bookable by workspace clients.</p>
+        </div>
+        <div class="divide-y divide-neutral-900">
+          <div *ngFor="let s of services" class="p-6 flex flex-col sm:flex-row justify-between items-start gap-4 hover:bg-neutral-900/10 transition-all">
+            <div class="space-y-1 max-w-xl">
+              <h4 class="text-sm font-medium text-white">{{ s.name }}</h4>
+              <p class="text-xs text-neutral-400 font-light leading-relaxed">{{ s.description || 'No detailed specifications provisioned.' }}</p>
+              <span class="inline-block text-[10px] text-neutral-500 font-mono">Duration Index: {{ s.estimated_duration_hours }}h</span>
+            </div>
+            <div class="text-sm font-semibold text-white whitespace-nowrap">
+              {{ s.price | currency }}
+            </div>
+          </div>
+          <div *ngIf="services.length === 0" class="p-12 text-center text-sm text-neutral-500">No premium treatments active in the catalogue directory.</div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="activeTab === 'logs'" class="animate-fade-in bg-neutral-900/30 border border-neutral-900 rounded-2xl overflow-hidden backdrop-blur-md">
+      <div class="p-6 border-b border-neutral-900">
+        <h2 class="text-base font-medium text-white">System Lifecycle Audit Trail</h2>
+        <p class="text-xs text-neutral-500 mt-1">Immutable tracker showing exactly when clients requested services and when staff updated them.</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-neutral-900 text-[10px] uppercase tracking-wider text-neutral-400 font-semibold bg-neutral-900/10">
+              <th class="p-4 pl-6">Timestamp</th>
+              <th class="p-4">Booking</th>
+              <th class="p-4">Client</th>
+              <th class="p-4">Action By</th>
+              <th class="p-4 pr-6 text-right">Pipeline Shift</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-neutral-900 text-xs">
+            <tr *ngFor="let log of logs" class="hover:bg-neutral-900/10 transition-colors">
+              <td class="p-4 pl-6 text-neutral-400 whitespace-nowrap">{{ log.timestamp | date:'MMM d, y, h:mm:ss a' }}</td>
+              <td class="p-4 font-medium text-white whitespace-nowrap">ID #{{ log.booking_id }} <span class="text-neutral-500 font-normal">({{ log.service_name }})</span></td>
+              <td class="p-4 text-neutral-300">{{ log.client_email }}</td>
+              <td class="p-4 text-neutral-300">
+                <span [class.text-blue-400]="log.action_by !== log.client_email">
+                  {{ log.action_by }}
+                </span>
+              </td>
+              <td class="p-4 pr-6 text-right whitespace-nowrap">
+                <span [ngClass]="{
+                  'bg-amber-950/40 text-amber-400 border-amber-900/50': log.status_changed_to === 'PENDING',
+                  'bg-blue-950/40 text-blue-400 border-blue-900/50': log.status_changed_to === 'CONFIRMED' || log.status_changed_to === 'IN_PROGRESS',
+                  'bg-emerald-950/40 text-emerald-400 border-emerald-900/50': log.status_changed_to === 'READY' || log.status_changed_to === 'COMPLETED',
+                  'bg-neutral-900 text-neutral-500 border-neutral-800': log.status_changed_to === 'CANCELLED'
+                }" class="text-[10px] px-2 py-0.5 rounded border uppercase font-medium tracking-wide">
+                  {{ log.status_changed_to }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div *ngIf="logs.length === 0" class="p-12 text-center text-sm text-neutral-500">
+          No interaction events logged in the database yet.
+        </div>
+      </div>
+    </div>
+
+  </main>
 </div>

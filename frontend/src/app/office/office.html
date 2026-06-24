@@ -1,1 +1,115 @@
-<p>office works!</p>
+<div class="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
+  <!-- Operational Nav Header -->
+  <header class="border-b border-neutral-900 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-semibold tracking-wider bg-blue-600 text-white px-2 py-0.5 rounded">OPS</span>
+        <h1 class="text-sm font-medium tracking-tight text-white">RefurbNation Operator Control</h1>
+      </div>
+      <button (click)="logout()" class="text-xs text-neutral-500 hover:text-rose-400 transition-colors duration-200 cursor-pointer">
+        Leave Session
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- Task A: Create and Publish Scheduling/Availability Windows -->
+    <div class="lg:col-span-1 space-y-6">
+      <div class="bg-neutral-900/30 border border-neutral-900 p-6 rounded-2xl backdrop-blur-sm">
+        <h3 class="text-sm font-medium text-white mb-1">Set Studio Availability</h3>
+        <p class="text-xs text-neutral-500 mb-4">Define available dates, times, and maximum vehicle bays.</p>
+
+        <form (ngSubmit)="createSlot()" class="space-y-4">
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Available Work Date</label>
+            <input [(ngModel)]="newSlot.date" name="date" type="date" required
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neutral-700">
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Shift Start</label>
+              <input [(ngModel)]="newSlot.start_time" name="start" type="time" required
+                class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neutral-700">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Shift End</label>
+              <input [(ngModel)]="newSlot.end_time" name="end" type="time" required
+                class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neutral-700">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[10px] uppercase tracking-wider text-neutral-400 mb-1">Total Available Slots (Bays)</label>
+            <input [(ngModel)]="newSlot.max_capacity" name="capacity" type="number" min="1" required
+              class="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-neutral-700">
+          </div>
+
+          <button type="submit" class="w-full bg-white text-black text-xs font-medium py-2.5 rounded-xl hover:bg-neutral-200 transition-all duration-200 mt-2 cursor-pointer">
+            Publish Scheduling Blocks
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Task B: Fetch Incoming Requests, Confirm, and Update Delivery Timelines -->
+    <div class="lg:col-span-2">
+      <div class="bg-neutral-900/20 border border-neutral-900 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div class="p-6 border-b border-neutral-900 bg-neutral-900/10">
+          <h2 class="text-base font-medium text-white">Live Requests & Treatment Pipelines</h2>
+          <p class="text-xs text-neutral-500 mt-1">Accept consumer incoming work orders and assign delivery estimates.</p>
+        </div>
+
+        <div class="divide-y divide-neutral-900">
+          <div *ngFor="let item of allBookings" class="p-6 hover:bg-neutral-900/10 transition-all duration-200">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              
+              <div class="space-y-2 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-medium text-white">{{ item.service_name }}</span>
+                  <span class="text-[9px] font-mono text-neutral-400 bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-800">Job: #{{ item.id }}</span>
+                  
+                  <!-- Primary Action: If pending, show a prominent quick-confirm key -->
+                  <button *ngIf="item.status === 'PENDING'" (click)="confirmBooking(item.id)"
+                    class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-2 py-0.5 rounded transition-all cursor-pointer">
+                    ✓ Confirm Booking
+                  </button>
+                </div>
+                <p class="text-xs text-neutral-400">Client Reference ID: {{ item.user }}</p>
+                
+                <!-- Action: Set/Update Delivery Timeline on file -->
+                <div class="pt-2 flex items-center gap-2">
+                  <label class="text-[10px] uppercase text-neutral-500 font-medium whitespace-nowrap">Est. Delivery:</label>
+                  <input type="datetime-local" [(ngModel)]="item.estimated_delivery_timeline"
+                    (change)="updateBookingPayload(item.id, { estimated_delivery_timeline: item.estimated_delivery_timeline })"
+                    class="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-neutral-700">
+                </div>
+              </div>
+
+              <!-- Action: Dropdown selector modifying status pipeline stage -->
+              <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-2">
+                <label class="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Job Status</label>
+                <select [(ngModel)]="item.status" (change)="updateBookingPayload(item.id, { status: item.status })"
+                  [ngClass]="{
+                    'border-amber-900 text-amber-400 bg-amber-950/20': item.status === 'PENDING',
+                    'border-blue-900 text-blue-400 bg-blue-950/20': item.status === 'CONFIRMED' || item.status === 'IN_PROGRESS',
+                    'border-emerald-900 text-emerald-400 bg-emerald-950/20': item.status === 'READY' || item.status === 'COMPLETED'
+                  }"
+                  class="border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none font-medium cursor-pointer transition-all">
+                  <option *ngFor="let opt of statusOptions" [value]="opt" class="bg-neutral-900 text-neutral-100">{{ opt }}</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          <div *ngIf="allBookings.length === 0" class="p-16 text-center text-xs text-neutral-500">
+            No active client studio bookings or requests are logged in the network database.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
