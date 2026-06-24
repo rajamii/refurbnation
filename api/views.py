@@ -73,31 +73,6 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Standard users only see their own bookings
         return Booking.objects.filter(user=user).order_by('-created_at')
 
-    def perform_create(self, serializer):
-        # Automatically assign the logged-in user to the booking
-        serializer.save(user=self.request.user)
-
-    # Custom action for Office/Admin to update booking status
-    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrOffice])
-    def update_status(self, request, pk=None):
-        booking = self.get_object()
-        new_status = request.data.get('status')
-        if new_status in dict(Booking.BookingStatus.choices):
-            booking.status = new_status
-            booking.save()
-            return Response({'status': 'Booking status updated'})
-        return Response({'error': 'Invalid status'}, status=400)
-
-
-class AdminAuditLogListView(generics.ListAPIView):
-    queryset = BookingLog.objects.all()
-    serializer_class = BookingLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminUserRole]
-
-
-class BookingViewSet(viewsets.ModelViewSet):
-    # ... your existing properties ...
-
     def _log_action(self, booking, actor):
         BookingLog.objects.create(
             booking_id=booking.id,
@@ -108,9 +83,11 @@ class BookingViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
+        # Automatically assign the logged-in user to the booking
         booking = serializer.save(user=self.request.user)
-        self._log_action(booking, self.request.user) # Logs initial creation by user
+        self._log_action(booking, self.request.user)  # Logs initial creation by user
 
+    # Custom action for Office/Admin to update booking status & delivery timeline
     @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrOffice])
     def update_status(self, request, pk=None):
         booking = self.get_object()
@@ -118,10 +95,19 @@ class BookingViewSet(viewsets.ModelViewSet):
         new_timeline = request.data.get('estimated_delivery_timeline')
         
         if new_status:
-            booking.status = new_status
+            if new_status in dict(Booking.BookingStatus.choices):
+                booking.status = new_status
+            else:
+                return Response({'error': 'Invalid status'}, status=400)
+                
         if new_timeline:
             booking.estimated_delivery_timeline = new_timeline
             
         booking.save()
-        self._log_action(booking, request.user) # Logs handling action taken by staff/admin
-        return Response({'status': 'Booking updated'})
+        self._log_action(booking, request.user)  # Logs handling action taken by staff/admin
+        return Response({'status': 'Booking updated successfully'})
+
+class AdminAuditLogListView(generics.ListAPIView):
+    queryset = BookingLog.objects.all()
+    serializer_class = BookingLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminUserRole]

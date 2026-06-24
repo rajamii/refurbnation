@@ -78,6 +78,7 @@ class Booking(models.Model):
     service = models.ForeignKey(Service, on_delete=models.PROTECT)
     slot = models.ForeignKey(AppointmentSlot, on_delete=models.PROTECT, related_name='bookings')
     status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
+    estimated_delivery_timeline = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., Today by 6 PM")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
