@@ -1,5 +1,4 @@
 <div class="min-h-screen bg-neutral-950 text-neutral-100 font-sans antialiased">
-  <!-- Operational Nav Header -->
   <header class="border-b border-neutral-900 bg-neutral-950/80 backdrop-blur-md sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -14,7 +13,6 @@
 
   <main class="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
     
-    <!-- Task A: Create and Publish Scheduling/Availability Windows -->
     <div class="lg:col-span-1 space-y-6">
       <div class="bg-neutral-900/30 border border-neutral-900 p-6 rounded-2xl backdrop-blur-sm">
         <h3 class="text-sm font-medium text-white mb-1">Set Studio Availability</h3>
@@ -53,7 +51,6 @@
       </div>
     </div>
 
-    <!-- Task B: Fetch Incoming Requests, Confirm, and Update Delivery Timelines -->
     <div class="lg:col-span-2">
       <div class="bg-neutral-900/20 border border-neutral-900 rounded-2xl overflow-hidden backdrop-blur-sm">
         <div class="p-6 border-b border-neutral-900 bg-neutral-900/10">
@@ -67,37 +64,72 @@
               
               <div class="space-y-2 flex-1">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-xs font-medium text-white">{{ item.service_name }}</span>
-                  <span class="text-[9px] font-mono text-neutral-400 bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-800">Job: #{{ item.id }}</span>
+                  <h3 class="text-sm font-semibold text-white">{{ item.service_name }}</h3>
+                  <span class="text-[9px] font-mono text-neutral-400 bg-neutral-950 px-1.5 py-0.5 rounded border border-neutral-800">JOB ID: #{{ item.id }}</span>
+                  <span class="text-[10px] text-emerald-400 bg-emerald-950/40 border border-emerald-900/40 font-mono px-2 py-0.5 rounded">
+                    {{ item.final_price | currency:'INR':'symbol':'1.0-0' }}
+                  </span>
+                </div>
+                
+                <p class="text-xs text-neutral-300">
+                  <strong>Vehicle Make/Model:</strong> {{ item.vehicle_make_model }} 
+                  <span class="ml-1 px-1.5 py-0.5 rounded bg-neutral-900 border border-neutral-800 text-[10px] text-neutral-400 tracking-wider uppercase font-medium">
+                    {{ item.vehicle_category_name }}
+                  </span>
+                </p>
+                <p class="text-xs text-neutral-400"><strong>Requested Date:</strong> {{ item.requested_date | date:'MMMM d, y' }}</p>
+                
+                <p *ngIf="item.slot_start_time" class="text-[11px] text-neutral-500">
+                  Allocated Time Block: {{ item.slot_date | date:'shortDate' }} @ {{ item.slot_start_time.substring(0,5) }} - {{ item.slot_end_time.substring(0,5) }}
+                </p>
+
+                <div *ngIf="item.status === 'PENDING'" class="mt-4 p-4 bg-neutral-950 border border-neutral-900 rounded-xl space-y-4 animate-fade-in">
+                  <p class="text-[10px] font-bold uppercase text-emerald-500 tracking-wider">Process Incoming Intake Request</p>
                   
-                  <!-- Primary Action: If pending, show a prominent quick-confirm key -->
-                  <button *ngIf="item.status === 'PENDING'" (click)="confirmBooking(item.id)"
-                    class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-2 py-0.5 rounded transition-all cursor-pointer">
-                    ✓ Confirm Booking
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-[9px] uppercase tracking-wider text-neutral-400 mb-1">Allocate Shift Slot</label>
+                      <select [(ngModel)]="item.targetSlotId" class="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-1.5 text-xs text-white focus:outline-none cursor-pointer">
+                        <option [ngValue]="undefined" disabled selected>Choose a slot...</option>
+                        <option *ngFor="let slot of availableSlots" [ngValue]="slot.id">
+                          {{ slot.date | date:'MM-dd' }} ({{ slot.start_time.substring(0,5) }} - {{ slot.end_time.substring(0,5) }})
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-[9px] uppercase tracking-wider text-neutral-400 mb-1">Est. Delivery Statement</label>
+                      <input type="text" [(ngModel)]="item.temp_delivery_timeline" placeholder="e.g., Today by 6 PM"
+                        class="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-1.5 text-xs text-white focus:outline-none">
+                    </div>
+                  </div>
+
+                  <button [disabled]="!item.targetSlotId" (click)="confirmAndAssignBooking(item)"
+                    class="w-full bg-emerald-600 disabled:bg-neutral-900 disabled:text-neutral-600 text-white font-medium py-1.5 rounded-lg text-xs transition-all cursor-pointer">
+                    ✓ Allocate Slot & Confirm Booking
                   </button>
                 </div>
-                <p class="text-xs text-neutral-400">Client Reference ID: {{ item.user }}</p>
-                
-                <!-- Action: Set/Update Delivery Timeline on file -->
-                <div class="pt-2 flex items-center gap-2">
-                  <label class="text-[10px] uppercase text-neutral-500 font-medium whitespace-nowrap">Est. Delivery:</label>
-                  <input type="datetime-local" [(ngModel)]="item.estimated_delivery_timeline"
+
+                <div *ngIf="item.status !== 'PENDING'" class="pt-2 flex items-center gap-2">
+                  <label class="text-[10px] uppercase text-neutral-500 font-medium whitespace-nowrap">Update Est. Delivery:</label>
+                  <input type="text" [(ngModel)]="item.estimated_delivery_timeline" placeholder="e.g., Today by 6 PM"
                     (change)="updateBookingPayload(item.id, { estimated_delivery_timeline: item.estimated_delivery_timeline })"
-                    class="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-neutral-700">
+                    class="bg-neutral-950 border border-neutral-800 rounded px-2 py-1 text-[11px] text-neutral-300 focus:outline-none focus:border-neutral-700 w-full max-w-xs">
                 </div>
               </div>
 
-              <!-- Action: Dropdown selector modifying status pipeline stage -->
               <div class="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-2">
                 <label class="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Job Status</label>
                 <select [(ngModel)]="item.status" (change)="updateBookingPayload(item.id, { status: item.status })"
                   [ngClass]="{
-                    'border-amber-900 text-amber-400 bg-amber-950/20': item.status === 'PENDING',
-                    'border-blue-900 text-blue-400 bg-blue-950/20': item.status === 'CONFIRMED' || item.status === 'IN_PROGRESS',
-                    'border-emerald-900 text-emerald-400 bg-emerald-950/20': item.status === 'READY' || item.status === 'COMPLETED'
+                    'border-amber-900 text-amber-400 bg-amber-950/20': item.status_ui_color === 'amber',
+                    'border-blue-900 text-blue-400 bg-blue-950/20': item.status_ui_color === 'blue',
+                    'border-emerald-900 text-emerald-400 bg-emerald-950/20': item.status_ui_color === 'emerald',
+                    'border-neutral-900 text-neutral-500 bg-neutral-900': item.status_ui_color === 'neutral'
                   }"
                   class="border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none font-medium cursor-pointer transition-all">
-                  <option *ngFor="let opt of statusOptions" [value]="opt" class="bg-neutral-900 text-neutral-100">{{ opt }}</option>
+                  <option *ngFor="let opt of masterStatuses" [value]="opt.code" class="bg-neutral-900 text-neutral-100">
+                    {{ opt.name }}
+                  </option>
                 </select>
               </div>
 

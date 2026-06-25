@@ -1,12 +1,13 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { tap } from 'rxjs';
+import { environment } from '../../environments/environments';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
-  private apiUrl = 'http://localhost:8000/api';
+  private apiUrl = environment.apiUrl;
   
   currentUser = signal<{role: string, email?: string} | null>(null);
 
@@ -29,7 +30,6 @@ export class AuthService {
     );
   }
 
-  // Missing register function hitting your Django RegisterView endpoint
   register(credentials: any) {
     return this.http.post(`${this.apiUrl}/auth/register/`, credentials);
   }

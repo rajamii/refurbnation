@@ -1,65 +1,89 @@
-from rest_framework import generics, viewsets, permissions
+# api/views.py
+from rest_framework import viewsets, permissions, generics, status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer, RegisterSerializer, AdminCreateOfficeUserSerializer, ServiceSerializer, AppointmentSlotSerializer, BookingSerializer, BookingLogSerializer
-from .models import Service, AppointmentSlot, Booking, BookingLog
-from rest_framework.response import Response
+
+from .models import Service, AppointmentSlot, Booking, BookingLog, VehicleCategoryMaster, BookingStatusMaster, RoleMaster, ServicePriceMatrix
+from .serializers import (
+    ServiceSerializer, 
+    AppointmentSlotSerializer, 
+    BookingSerializer, 
+    VehicleCategoryMasterSerializer, 
+    BookingStatusMasterSerializer, 
+    UserSerializer,
+    RegisterSerializer,
+    BookingLogSerializer
+)
 from .permissions import IsAdminUserRole, IsAdminOrOffice, IsAdminOfficeOrReadOnly
 
 User = get_user_model()
+
+# ==========================================
+# 1. AUTHENTICATION & IDENTITY VIEWS
+# ==========================================
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token['role'] = user.role # Include role in JWT payload
+        # Pull role code directly from the master relationship
+        token['role'] = user.role.code 
         return token
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        data['role'] = self.user.role
+        data['role'] = self.user.role.code
         data['email'] = self.user.email
         return data
 
 class CustomTokenObtainPairView(TokenObtainPairView):
+    """Exposes custom JWT payload tokens matching your login interface routing"""
     serializer_class = CustomTokenObtainPairSerializer
 
 class RegisterView(generics.CreateAPIView):
+    """Handles new client registration requests across your web app forms"""
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
 
-# --- ADMIN VIEWS ---
 
-class AdminUserListView(generics.ListAPIView):
-    serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated, IsAdminUserRole]
+# ==========================================
+# 2. DYNAMIC LOOKUP META ENDPOINTS
+# ==========================================
 
-    def get_queryset(self):
-        role_filter = self.request.query_params.get('role', None)
-        if role_filter in ['USER', 'OFFICE']:
-            return User.objects.filter(role=role_filter)
-        return User.objects.exclude(role='ADMIN')
+class ConfigurationViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
 
-class AdminCreateOfficeUserView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminUserRole]
-    serializer_class = AdminCreateOfficeUserSerializer
+    @action(detail=False, methods=['get'])
+    def meta_lookup(self, request):
+        """Feeds master list parameters direct to frontend form options dynamically"""
+        categories = VehicleCategoryMaster.objects.all()
+        statuses = BookingStatusMaster.objects.all()
+        return Response({
+            'categories': VehicleCategoryMasterSerializer(categories, many=True).data,
+            'statuses': BookingStatusMasterSerializer(statuses, many=True).data
+        })
 
+
+# ==========================================
+# 3. CORE MANAGEMENT CORE BUSINESS VIEWS
+# ==========================================
 
 class ServiceViewSet(viewsets.ModelViewSet):
     queryset = Service.objects.all()
     serializer_class = ServiceSerializer
-    # Anyone authenticated can view, only Office/Admin can create/edit
     permission_classes = [permissions.IsAuthenticated, IsAdminOfficeOrReadOnly]
+
 
 class AppointmentSlotViewSet(viewsets.ModelViewSet):
     queryset = AppointmentSlot.objects.filter(is_active=True)
     serializer_class = AppointmentSlotSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOfficeOrReadOnly]
+
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
@@ -67,10 +91,8 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Office and Admin see all bookings
-        if user.role in ['ADMIN', 'OFFICE']:
+        if user.role_id in ['ADMIN', 'OFFICE']:
             return Booking.objects.all().order_by('-created_at')
-        # Standard users only see their own bookings
         return Booking.objects.filter(user=user).order_by('-created_at')
 
     def _log_action(self, booking, actor):
@@ -79,35 +101,72 @@ class BookingViewSet(viewsets.ModelViewSet):
             client_email=booking.user.email,
             service_name=booking.service.name,
             action_by=actor.email,
-            status_changed_to=booking.status
+            status_changed_to=booking.status.name
         )
 
     def perform_create(self, serializer):
-        # Automatically assign the logged-in user to the booking
-        booking = serializer.save(user=self.request.user)
-        self._log_action(booking, self.request.user)  # Logs initial creation by user
+        service = serializer.validated_data.get('service')
+        vehicle_category = serializer.validated_data.get('vehicle_category')
+        
+        try:
+            matrix_entry = ServicePriceMatrix.objects.get(service=service, category=vehicle_category)
+            calculated_price = matrix_entry.price_in_rupees
+        except Exception:
+            calculated_price = 0.00
 
-    # Custom action for Office/Admin to update booking status & delivery timeline
+        initial_status = BookingStatusMaster.objects.get(code='PENDING')
+        booking = serializer.save(user=self.request.user, status=initial_status, final_price=calculated_price)
+        self._log_action(booking, self.request.user)
+
     @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrOffice])
     def update_status(self, request, pk=None):
         booking = self.get_object()
-        new_status = request.data.get('status')
+        new_status_code = request.data.get('status')
         new_timeline = request.data.get('estimated_delivery_timeline')
-        
-        if new_status:
-            if new_status in dict(Booking.BookingStatus.choices):
-                booking.status = new_status
-            else:
-                return Response({'error': 'Invalid status'}, status=400)
+        slot_id = request.data.get('slot')
+
+        if new_status_code:
+            try:
+                booking.status = BookingStatusMaster.objects.get(code=new_status_code)
+            except BookingStatusMaster.DoesNotExist:
+                return Response({'error': 'Invalid Master Status Selection Code'}, status=status.HTTP_400_BAD_REQUEST)
                 
         if new_timeline:
             booking.estimated_delivery_timeline = new_timeline
             
+        if slot_id:
+            booking.slot_id = slot_id
+            
         booking.save()
-        self._log_action(booking, request.user)  # Logs handling action taken by staff/admin
-        return Response({'status': 'Booking updated successfully'})
+        self._log_action(booking, request.user)
+        return Response({'status': 'Tracking data committed successfully'})
 
-class AdminAuditLogListView(generics.ListAPIView):
-    queryset = BookingLog.objects.all()
-    serializer_class = BookingLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminUserRole]
+
+# ==========================================
+# 4. CUSTOM MANAGEMENT CONSOLE APP ENDPOINTS
+# ==========================================
+
+class AdminDashboardViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated, IsAdminUserRole]
+
+    @action(detail=False, methods=['get'], url_path='users')
+    def get_users_by_role(self, request):
+        target_role = request.query_params.get('role', 'USER')
+        users = User.objects.filter(role__code=target_role)
+        return Response(UserSerializer(users, many=True).data)
+
+    @action(detail=False, methods=['post'], url_path='users/office')
+    def provision_office_user(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        if not email or not password:
+            return Response({'error': 'Missing credentials parameters'}, status=400)
+            
+        office_role = RoleMaster.objects.get(code='OFFICE')
+        user = User.objects.create_user(email=email, password=password, role=office_role)
+        return Response(UserSerializer(user).data)
+
+    @action(detail=False, methods=['get'], url_path='logs')
+    def view_audit_logs(self, request):
+        logs = BookingLog.objects.all()
+        return Response(BookingLogSerializer(logs, many=True).data)

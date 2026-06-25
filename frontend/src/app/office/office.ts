@@ -15,6 +15,8 @@ export class Office implements OnInit {
   private baseApi = 'http://localhost:8000/api';
 
   allBookings: any[] = [];
+  availableSlots: any[] = [];
+  masterStatuses: any[] = [];
 
   newSlot = {
     date: '',
@@ -23,8 +25,6 @@ export class Office implements OnInit {
     max_capacity: 2
   };
 
-  statusOptions = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'];
-
   constructor(
     private http: HttpClient,
     private authService: AuthService,
@@ -32,11 +32,21 @@ export class Office implements OnInit {
   ) { }
 
   ngOnInit() {
+    this.loadMasterConfigurations();
     this.loadAllSystemBookings();
+    this.loadActiveAvailableSlots();
   }
 
   private getHeaders() {
     return new HttpHeaders().set('Authorization', `Bearer ${localStorage.getItem('access')}`);
+  }
+
+  loadMasterConfigurations() {
+    this.http.get(`${this.baseApi}/config/meta_lookup/`, { headers: this.getHeaders() })
+      .subscribe({
+        next: (res: any) => this.masterStatuses = res.statuses,
+        error: (err) => console.error('Failed to parse status list parameters', err)
+      });
   }
 
   loadAllSystemBookings() {
@@ -44,6 +54,14 @@ export class Office implements OnInit {
       .subscribe({
         next: (res: any) => this.allBookings = res,
         error: (err) => console.error('Failed to load active shop pipeline', err)
+      });
+  }
+
+  loadActiveAvailableSlots() {
+    this.http.get(`${this.baseApi}/slots/`, { headers: this.getHeaders() })
+      .subscribe({
+        next: (res: any) => this.availableSlots = res,
+        error: (err) => console.error('Failed to parse calendar blocks', err)
       });
   }
 
@@ -55,29 +73,27 @@ export class Office implements OnInit {
         next: () => {
           alert(`Available slots for ${this.newSlot.date} published to clients.`);
           this.newSlot.date = '';
+          this.loadActiveAvailableSlots();
         },
         error: (err) => console.error('Slot construction failure', err)
       });
   }
 
-  confirmBooking(bookingId: number) {
-    this.updateBookingPayload(bookingId, { status: 'CONFIRMED' });
+  confirmAndAssignBooking(bookingItem: any) {
+    const payload = {
+      status: 'CONFIRMED',
+      slot: bookingItem.targetSlotId,
+      estimated_delivery_timeline: bookingItem.temp_delivery_timeline || ''
+    };
+    this.updateBookingPayload(bookingItem.id, payload);
   }
 
-  updateBookingPayload(bookingId: number, updateData: { status?: string, estimated_delivery_timeline?: string }) {
+  updateBookingPayload(bookingId: number, updateData: { status?: string, slot?: number, estimated_delivery_timeline?: string }) {
     this.http.patch(`${this.baseApi}/bookings/${bookingId}/update_status/`, updateData, { headers: this.getHeaders() })
       .subscribe({
         next: () => this.loadAllSystemBookings(),
         error: (err) => console.error('Failed to save assignment updates', err)
       });
-  }
-
-  modifyBookingDetails(bookingId: number, serviceId: number, slotId: number) {
-    const fullPayload = { service: serviceId, slot: slotId };
-
-
-    this.http.patch(`${this.baseApi}/bookings/${bookingId}/`, fullPayload, { headers: this.getHeaders() })
-      .subscribe(() => this.loadAllSystemBookings());
   }
 
   logout() {

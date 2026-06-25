@@ -23,9 +23,10 @@ export class AdminComponent implements OnInit {
   newService = {
     name: '',
     description: '',
-    price: '',
     estimated_duration_hours: '1.0'
   };
+
+  categoryPricesForm: any[] = [];
 
   constructor(
     private http: HttpClient,
@@ -34,6 +35,7 @@ export class AdminComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadMasterCategories();
     this.refreshData();
   }
 
@@ -46,15 +48,28 @@ export class AdminComponent implements OnInit {
     return new HttpHeaders().set('Authorization', `Bearer ${localStorage.getItem('access')}`);
   }
 
-  refreshData() {
-  if (this.activeTab === 'services') {
-    this.fetchServices();
-  } else if (this.activeTab === 'logs') {
-    this.fetchAuditLogs();
-  } else {
-    this.fetchUsers();
+  loadMasterCategories() {
+    this.http.get('http://localhost:8000/api/config/meta_lookup/', { headers: this.getHeaders() })
+      .subscribe({
+        next: (res: any) => {
+          this.categoryPricesForm = res.categories.map((c: any) => ({
+            category: c.code,
+            label: c.name,
+            price_in_rupees: null
+          }));
+        }
+      });
   }
-}
+
+  refreshData() {
+    if (this.activeTab === 'services') {
+      this.fetchServices();
+    } else if (this.activeTab === 'logs') {
+      this.fetchAuditLogs();
+    } else {
+      this.fetchUsers();
+    }
+  }
 
   fetchUsers() {
     const roleMap = this.activeTab === 'clients' ? 'USER' : 'OFFICE';
@@ -72,35 +87,43 @@ export class AdminComponent implements OnInit {
       });
   }
 
-  // --- Service Management Methods ---
   fetchServices() {
     this.http.get('http://localhost:8000/api/services/', { headers: this.getHeaders() })
       .subscribe((data: any) => this.services = data);
   }
 
   createServiceType() {
-    if (!this.newService.name || !this.newService.price) return;
+    if (!this.newService.name) return;
 
-    this.http.post('http://localhost:8000/api/services/', this.newService, { headers: this.getHeaders() })
+    const filteredPrices = this.categoryPricesForm
+      .filter(item => item.price_in_rupees !== null)
+      .map(item => ({
+        category: item.category,
+        price_in_rupees: item.price_in_rupees
+      }));
+
+    const payload = {
+      name: this.newService.name,
+      description: this.newService.description,
+      estimated_duration_hours: this.newService.estimated_duration_hours,
+      prices: filteredPrices
+    };
+
+    this.http.post('http://localhost:8000/api/services/', payload, { headers: this.getHeaders() })
       .subscribe({
         next: () => {
           this.fetchServices();
-          // Reset form controls
-          this.newService = {
-            name: '',
-            description: '',
-            price: '',
-            estimated_duration_hours: '1.0'
-          };
+          this.newService = { name: '', description: '', estimated_duration_hours: '1.0' };
+          this.categoryPricesForm.forEach(item => item.price_in_rupees = null);
         },
-        error: (err) => console.error('Failed to register service type', err)
+        error: (err) => console.error('Failed to register service matrix', err)
       });
   }
 
   fetchAuditLogs() {
-  this.http.get('http://localhost:8000/api/admin/logs/', { headers: this.getHeaders() })
-    .subscribe((data: any) => this.logs = data);
-}
+    this.http.get('http://localhost:8000/api/admin/logs/', { headers: this.getHeaders() })
+      .subscribe((data: any) => this.logs = data);
+  }
 
   logout() {
     this.authService.logout();

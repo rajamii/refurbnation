@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core'; // <-- 1. Add OnDestroy
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -12,16 +12,20 @@ import { AuthService } from '../services/auth.service';
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss',
 })
-export class Dashboard implements OnInit, OnDestroy { // <-- 2. Implement OnDestroy
+export class Dashboard implements OnInit, OnDestroy {
   private baseApi = 'http://localhost:8000/api';
-  private pollingTimer: any; // <-- Tracker loop reference
+  private pollingTimer: any;
   
   services: any[] = [];
-  slots: any[] = [];
   bookings: any[] = [];
+  masterCategories: any[] = [];
 
   selectedServiceId: number | null = null;
-  selectedSlotId: number | null = null;
+  selectedCategoryCode: string = '';
+  requestedDate: string = '';
+  vehicleMakeModel: string = '';
+  vehicleLicensePlate: string = '';
+  currentQuotePrice: number | null = null;
 
   constructor(
     private http: HttpClient, 
@@ -30,17 +34,16 @@ export class Dashboard implements OnInit, OnDestroy { // <-- 2. Implement OnDest
   ) {}
 
   ngOnInit() {
+    this.loadMasterConfigurations();
     this.loadServices();
-    this.loadAvailableSlots();
     this.loadMyBookings();
 
-    // 3. Auto-query the database background loop every 15 seconds
+    // Background loop refresh tracker execution
     this.pollingTimer = setInterval(() => {
       this.loadMyBookings();
     }, 15000);
   }
 
-  // 4. Clear background thread allocations when user changes routes (Fixes Lighthouse cache bugs!)
   ngOnDestroy() {
     if (this.pollingTimer) {
       clearInterval(this.pollingTimer);
@@ -51,6 +54,14 @@ export class Dashboard implements OnInit, OnDestroy { // <-- 2. Implement OnDest
     return new HttpHeaders().set('Authorization', `Bearer ${localStorage.getItem('access')}`);
   }
 
+  loadMasterConfigurations() {
+    this.http.get(`${this.baseApi}/config/meta_lookup/`, { headers: this.getHeaders() })
+      .subscribe({
+        next: (res: any) => this.masterCategories = res.categories,
+        error: (err) => console.error('Failed to clear master table lookup configuration matrix', err)
+      });
+  }
+
   loadServices() {
     this.http.get(`${this.baseApi}/services/`, { headers: this.getHeaders() })
       .subscribe({
@@ -59,12 +70,16 @@ export class Dashboard implements OnInit, OnDestroy { // <-- 2. Implement OnDest
       });
   }
 
-  loadAvailableSlots() {
-    this.http.get(`${this.baseApi}/slots/`, { headers: this.getHeaders() })
-      .subscribe({
-        next: (res: any) => this.slots = res,
-        error: (err) => console.error('Failed to pull calendar blocks', err)
-      });
+  calculateLiveQuote() {
+    if (!this.selectedServiceId || !this.selectedCategoryCode) {
+      this.currentQuotePrice = null;
+      return;
+    }
+    const targetService = this.services.find(s => s.id === this.selectedServiceId);
+    if (targetService && targetService.prices) {
+      const rateMatch = targetService.prices.find((p: any) => p.category_code === this.selectedCategoryCode);
+      this.currentQuotePrice = rateMatch ? rateMatch.price_in_rupees : 0;
+    }
   }
 
   loadMyBookings() {
@@ -76,21 +91,28 @@ export class Dashboard implements OnInit, OnDestroy { // <-- 2. Implement OnDest
   }
 
   createBooking() {
-    if (!this.selectedServiceId || !this.selectedSlotId) return;
+    if (!this.selectedServiceId || !this.selectedCategoryCode || !this.requestedDate || !this.vehicleMakeModel) return;
 
     const payload = {
       service: this.selectedServiceId,
-      slot: this.selectedSlotId
+      vehicle_category: this.selectedCategoryCode,
+      requested_date: this.requestedDate,
+      vehicle_make_model: this.vehicleMakeModel,
+      vehicle_license_plate: this.vehicleLicensePlate || null
     };
 
     this.http.post(`${this.baseApi}/bookings/`, payload, { headers: this.getHeaders() })
       .subscribe({
         next: () => {
           this.selectedServiceId = null;
-          this.selectedSlotId = null;
+          this.selectedCategoryCode = '';
+          this.requestedDate = '';
+          this.vehicleMakeModel = '';
+          this.vehicleLicensePlate = '';
+          this.currentQuotePrice = null;
           this.loadMyBookings();
         },
-        error: (err) => console.error('Booking placement failed', err)
+        error: (err) => console.error('Booking placement validation failed', err)
       });
   }
 

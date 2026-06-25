@@ -1,12 +1,50 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 
+# ==========================================
+# 1. DATABASE CONFIGURATION MASTER TABLES
+# ==========================================
+
+class RoleMaster(models.Model):
+    """Tracks application tier privileges (USER, OFFICE, ADMIN)"""
+    code = models.CharField(max_length=20, unique=True, primary_key=True)
+    name = models.CharField(max_length=50)
+
+    def __str__(self):
+        return self.name
+
+
+class VehicleCategoryMaster(models.Model):
+    """Tracks shop pricing tiers (HATCHBACK, SEDAN, SUV, etc.)"""
+    code = models.CharField(max_length=30, unique=True, primary_key=True)
+    name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.name
+
+
+class BookingStatusMaster(models.Model):
+    """Tracks workflow pipelines (PENDING, CONFIRMED, etc.)"""
+    code = models.CharField(max_length=30, unique=True, primary_key=True)
+    name = models.CharField(max_length=100)
+    ui_color_class = models.CharField(max_length=100, default='neutral')
+
+    def __str__(self):
+        return self.name
+
+# ==========================================
+# 2. CORE IDENTITY ENGINE MANAGERS & MODALS
+# ==========================================
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
         email = self.normalize_email(email)
-        extra_fields.setdefault('role', 'USER')
+        
+        user_role, _ = RoleMaster.objects.get_or_create(code='USER', defaults={'name': 'User'})
+        extra_fields.setdefault('role', user_role)
+        
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -15,25 +53,17 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('role', 'ADMIN') # Default superuser to ADMIN role
-
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
+        
+        admin_role, _ = RoleMaster.objects.get_or_create(code='ADMIN', defaults={'name': 'Admin'})
+        extra_fields.setdefault('role', admin_role)
 
         return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
-    class Roles(models.TextChoices):
-        USER = 'USER', 'User'
-        OFFICE = 'OFFICE', 'Office'
-        ADMIN = 'ADMIN', 'Admin'
-        
     username = None
     email = models.EmailField(unique=True)
-    role = models.CharField(max_length=10, choices=Roles.choices, default=Roles.USER)
+    role = models.ForeignKey(RoleMaster, on_delete=models.PROTECT, related_name='assigned_users')
 
     objects = CustomUserManager()
 
@@ -41,22 +71,40 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     def __str__(self):
-        return f"{self.email} ({self.role})"
+        return f"{self.email} ({self.role_id})"
+
+# ==========================================
+# 3. WORKSHOP SCHEDULING & PRICE MODELS
+# ==========================================
 
 class Service(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    price = models.DecimalField(max_digits=10, decimal_places=2)
     estimated_duration_hours = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
 
     def __str__(self):
         return self.name
 
+
+class ServicePriceMatrix(models.Model):
+    """Links service pricing explicitly to vehicle categories (in ₹)"""
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='prices')
+    category = models.ForeignKey(VehicleCategoryMaster, on_delete=models.CASCADE, related_name='pricing_set')
+    price_in_rupees = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = ('service', 'category')
+
+    def __str__(self):
+        return f"{self.service.name} - {self.category.name}: ₹{self.price_in_rupees}"
+
+
 class AppointmentSlot(models.Model):
+    """Operational booking windows managed by staff users"""
     date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    max_capacity = models.PositiveIntegerField(default=1, help_text="Number of cars that can be detailed in this slot")
+    max_capacity = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -65,36 +113,32 @@ class AppointmentSlot(models.Model):
     def __str__(self):
         return f"{self.date} ({self.start_time} - {self.end_time})"
 
-class Booking(models.Model):
-    class BookingStatus(models.TextChoices):
-        PENDING = 'PENDING', 'Pending'
-        CONFIRMED = 'CONFIRMED', 'Confirmed'
-        IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
-        READY = 'READY', 'Ready for Delivery'
-        COMPLETED = 'COMPLETED', 'Completed'
-        CANCELLED = 'CANCELLED', 'Cancelled'
 
+class Booking(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
     service = models.ForeignKey(Service, on_delete=models.PROTECT)
-    slot = models.ForeignKey(AppointmentSlot, on_delete=models.PROTECT, related_name='bookings')
-    status = models.CharField(max_length=20, choices=BookingStatus.choices, default=BookingStatus.PENDING)
-    estimated_delivery_timeline = models.CharField(max_length=100, blank=True, null=True, help_text="e.g., Today by 6 PM")
+    vehicle_category = models.ForeignKey(VehicleCategoryMaster, on_delete=models.PROTECT, related_name='bookings')
+    vehicle_make_model = models.CharField(max_length=255)
+    vehicle_license_plate = models.CharField(max_length=50, blank=True, null=True)
+    requested_date = models.DateField()
+    
+    slot = models.ForeignKey(AppointmentSlot, on_delete=models.PROTECT, related_name='bookings', blank=True, null=True)
+    status = models.ForeignKey(BookingStatusMaster, on_delete=models.PROTECT, related_name='bookings')
+    estimated_delivery_timeline = models.CharField(max_length=100, blank=True, null=True)
+    final_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.user.email} - {self.service.name} - {self.status}"
-    
+
 class BookingLog(models.Model):
+    """System-wide historical workflow audit log engine"""
     booking_id = models.IntegerField()
     client_email = models.EmailField()
     service_name = models.CharField(max_length=100)
-    action_by = models.CharField(max_length=255, help_text="Email of the user/staff who triggered this action")
+    action_by = models.CharField(max_length=255)
     status_changed_to = models.CharField(max_length=50)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-timestamp']
-
-    def __str__(self):
-        return f"Booking #{self.booking_id} modified to {self.status_changed_to} by {self.action_by}"
