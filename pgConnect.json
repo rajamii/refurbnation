@@ -1,0 +1,12 @@
+{
+    "Servers": {
+        "1": {
+            "Name": "rnation",
+            "Group": "Aiven Cloud",
+            "Host": "refurbnation-rnation.l.aivencloud.com",
+            "Port": 16749,
+            "MaintenanceDB": "defaultdb",
+            "Username": "avnadmin"
+        }
+    }
+}
