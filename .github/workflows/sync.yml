@@ -15,15 +15,11 @@ jobs:
           fetch-depth: 0
 
       - name: Push Code to Renation
-        env:
-          SYNC_TOKEN: ${{ secrets.SYNC_TOKEN }}
         run: |
-          # Configure Git Identity
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add the destination repository as a target remote containing the access token authentication
-          git remote add destination https://x-access-token:${SYNC_TOKEN}@github.com/rajamii/renation.git
+          # Explicitly pass token in the URL mapping
+          git remote add destination https://${{ secrets.SYNC_TOKEN }}@github.com/rajamii/renation.git
           
-          # Force push the main branch history accurately to the mirror repository
           git push destination main --force
