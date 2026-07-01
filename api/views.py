@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, generics, status
-from rest_framework.decorators import action
+from rest_framework.decorators import APIView, action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
@@ -25,7 +25,8 @@ from .serializers import (
     BookingStatusMasterSerializer, 
     UserSerializer,
     RegisterSerializer,
-    BookingLogSerializer
+    BookingLogSerializer,
+    UserProfileSerializer
 )
 from .permissions import IsAdminUserRole, IsAdminOrOffice, IsAdminOfficeOrReadOnly
 
@@ -55,6 +56,20 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
+
+class UserProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def patch(self, request):
+        serializer = UserProfileSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ==========================================
